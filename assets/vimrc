@@ -1,0 +1,192 @@
+" vim-plug {
+call plug#begin('~/.vim/plugged')
+Plug 'airblade/vim-gitgutter'
+Plug 'ctrlpvim/ctrlp.vim'
+Plug 'easymotion/vim-easymotion'
+Plug 'fatih/vim-go', { 'do': ':GoInstallBinaries' }
+Plug 'kaicataldo/material.vim'
+Plug 'ntpeters/vim-better-whitespace'
+Plug 'preservim/nerdtree', { 'on': 'NERDTreeToggle' }
+Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-fugitive'
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+" Plug 'ycm-core/YouCompleteMe', { 'do': './install.py --all' }
+call plug#end()
+" }
+
+" basic settings {
+set nocompatible
+
+filetype on
+filetype indent on
+filetype plugin on
+set autoindent
+set autoread
+set autowrite
+set backspace=indent,eol,start
+set clipboard=unnamed
+set cursorline
+set expandtab
+set fileencodings=utf-8,utf-16,gbk,big5,gb18030,latin1
+set gcr=a:blinkon0
+set modelines=1
+set mouse=a
+set noerrorbells
+set nospell
+set pastetoggle=<leader>p
+set path+=**
+set ruler
+set scrolloff=2
+set shiftwidth=0
+set showcmd
+set spelllang=en
+set tabstop=4
+set tags=tags;/
+set updatetime=100
+set visualbell
+set wildmenu
+" Display line numbers if terminal is wide enough.
+if &co > 80
+    set number
+endif
+" }
+
+" configgroup {
+augroup configgroup
+    autocmd!
+    autocmd BufRead *.h set filetype=cpp syntax=cpp
+    " place cursor at the previous position
+    autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$")
+                \ | exe "normal! g`\"" | endif
+    autocmd BufReadPre * if getfsize(@%) > 66666 | setlocal nobackup | endif
+    autocmd BufWritePost ~/.vimrc source ~/.vimrc
+    autocmd FileType cpp setlocal tabstop=2
+    autocmd InsertEnter * set nocursorline
+    autocmd InsertLeave * set cursorline
+augroup END
+" }
+
+" quickrun {
+map <F5> :call CompileRun()<CR>
+function! CompileRun()
+    exec "w"
+    if &filetype == 'python'
+        exec "!clear && time python3 %"
+    elseif &filetype == 'c'
+        exec "!clear && gcc -g % -o %<.out && ./%<.out"
+    elseif &filetype == 'cpp'
+        exec "!clear && g++ -DLOCAL -std=c++17 -g % -o %<.out && ./%<.out"
+    elseif &filetype == 'sh'
+        exec "!clear && bash %"
+    elseif &filetype == 'go'
+        exec "!clear && go build % && go run %"
+    endif
+endfunction
+" }
+
+" search {
+nnoremap <CR> :nohlsearch<CR><CR>
+set hlsearch
+set ignorecase smartcase
+set incsearch
+" }
+
+" swp and backup {
+if !isdirectory($HOME."/.vim/backup")
+    call mkdir($HOME."/.vim/backup", "", 0755)
+endif
+set backupdir=~/.vim/backup
+set backup
+set noswapfile
+augroup backup
+    autocmd!
+    autocmd BufWritePre,FileWritePre * let &l:backupext = strftime('%u%I')
+augroup END
+" }
+
+" undofile {
+if !isdirectory($HOME."/.vim/undo")
+    call mkdir($HOME."/.vim/undo", "", 0755)
+endif
+set undodir=~/.vim/undo
+set undofile
+" }
+
+" folding {
+nnoremap <space> za
+set fillchars=fold:\ ,
+set foldlevelstart=20
+set foldmethod=indent
+" }
+
+" coloring {
+syntax enable
+set termguicolors
+let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+silent! colorscheme material
+let g:material_theme_style = 'default'
+highlight Comment cterm=italic
+" }
+
+" vim buffer {
+noremap bd :bd<CR>
+noremap bn :bn<CR>
+noremap bp :bp<CR>
+" }
+
+" vim window {
+nnoremap nw <C-W><C-W>
+" }
+
+" move vertically by visual line {
+nnoremap j gj
+nnoremap k gk
+vnoremap < <gv
+vnoremap > >gv
+" }
+
+" disable some q related actions {
+map q: :q
+nnoremap q <nop>
+vnoremap q <nop>
+nnoremap Q <nop>
+" }
+
+" easyMotion {
+imap gb <ESC><Plug>(easymotion-b)
+nmap gb <Plug>(easymotion-b)
+imap gf <ESC><Plug>(easymotion-f)
+nmap gf <Plug>(easymotion-f)
+imap gF <ESC><Plug>(easymotion-F)
+nmap gF <Plug>(easymotion-F)
+imap gw <ESC><Plug>(easymotion-w)
+nmap gw <Plug>(easymotion-w)
+" }
+
+" NERDTree {
+let NERDTreeWinSize=36
+let NERDTreeWinPos="right"
+let NERDTreeShowHidden=1
+let NERDTreeMinimalUI=1
+let NERDTreeAutoDeleteBuffer=1
+let NERDTreeIgnore = ['._Icon', '.dropbox', '.DS_Store', '.git',
+                    \ '.localized', '*.o', '*.out', 'Icon']
+nnoremap <Leader>n :NERDTreeToggle<CR>
+augroup NERDTree
+    autocmd!
+    " Exit Vim when the only window left is NERDTree
+    autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
+        \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
+augroup END
+" }
+
+let g:airline_section_b = ""
+let g:airline_section_x = ""
+let g:airline_section_y = ""
+let g:airline_section_z = airline#section#create_right(['%4l\%L%4c'])
+
+let g:go_fmt_command = "goimports"
+
+" vim: fdm=marker fmr={,}
