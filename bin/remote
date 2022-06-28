@@ -1,0 +1,181 @@
+#!/bin/bash
+set -euo pipefail
+
+source ~/.remote
+REMOTE_HOST="${REMOTE_HOST:-${REMOTE_ARM:?'REMOTE_ARM not set — source ~/.remote first'}}"
+REMOTE_USER="${REMOTE_USER:-ljhuang}"
+REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
+LOCAL_WS_ROOT="${HOME}/workspace"
+REMOTE_WS_ROOT="/home/${REMOTE_USER}/workspace"
+
+usage() {
+  cat <<EOF
+remote - Mac <-> Cloud Desktop workflow tool
+Run from inside a workspace (auto-detects), or use -w <name>.
+
+Usage: remote [-w ws] <command> [args...]
+  push [path]              Mac -> remote
+  pull [path]              Remote -> Mac
+  build [pkg] [cmd]        Push + build (auto-detects pkg from cwd)
+  cp <src> <dst>           Rsync (prefix remote paths with :)
+  ssh [dir]                Interactive SSH (optionally cd to dir)
+
+Examples:
+  remote -w falconDp pull
+  remote push src/ELBFalconDPEngine
+  remote build ELBFalconDPEngine
+  remote cp :/home/${REMOTE_USER}/file.txt ./local/
+
+Workspace: \${WS_NAME:-<not resolved>} | Remote: ${REMOTE}
+EOF
+}
+
+# ── Helpers ───────────────────────────────────────────
+
+# Walk up from $PWD to find a .brazil workspace root
+find_ws() {
+  local d="$PWD"
+  while [ "$d" != "/" ]; do
+    [ -d "$d/.brazil" ] && echo "$d" && return 0
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
+# Detect package name from current directory
+detect_pkg() {
+  local rel="${PWD#"${LOCAL_WS}/src/"}"
+  [ "$rel" = "$PWD" ] && return 1
+  echo "${rel%%/*}"
+}
+
+# Rsync excludes (no build artifacts, keep .git/)
+EX=(--exclude='build' --exclude='env/' --exclude='*.o' --exclude='*.so')
+EX+=(--exclude='*.a' --exclude='*.d' --exclude='*.pyc')
+EX+=(--exclude='__pycache__/' --exclude='node_modules/')
+EX+=(--exclude='.brazil/cache/' --exclude='target/' --exclude='build.log')
+EX+=(--filter='protect build' --filter='protect build/')
+
+# Rsync workspace files (push or pull)
+do_sync() {
+  local dir="$1" sub="${2:-}"
+  local lp="${LOCAL_WS}" rp="${REMOTE_WS}"
+  [ -n "$sub" ] && lp="${lp}/${sub}" && rp="${rp}/${sub}"
+
+  if [ "$dir" = "push" ]; then
+    [ -n "$sub" ] && [ ! -e "$lp" ] && echo "ERROR: $lp not found" >&2 && exit 1
+    echo ">>> Push: ${WS_NAME}/${sub:-.} -> remote"
+    [ -n "$sub" ] && ssh "$REMOTE" "mkdir -p $(dirname "$rp")"
+    rsync -avz --delete "${EX[@]}" -e ssh "${lp}/" "${REMOTE}:${rp}/"
+  else
+    echo ">>> Pull: remote ${WS_NAME}/${sub:-.} -> local"
+    [ -n "$sub" ] && mkdir -p "$(dirname "$lp")"
+    rsync -avz --delete "${EX[@]}" -e ssh "${REMOTE}:${rp}/" "${lp}/"
+  fi
+  echo ">>> $dir complete."
+}
+
+# Push workspace config files (.brazil, packageInfo, release-info) without src/
+sync_ws_config() {
+  rsync -avz "${EX[@]}" -e ssh \
+    --include='.brazil/***' --include='packageInfo' \
+    --include='packageInfo.bak' --include='release-info/***' \
+    --exclude='src/' \
+    "${LOCAL_WS}/" "${REMOTE}:${REMOTE_WS}/" 2>/dev/null || true
+}
+
+# Run command on remote
+remote_exec() {
+  echo ">>> Remote: $1"
+  echo "---"
+  ssh -t "$REMOTE" "export PATH=\$HOME/.toolbox/bin:\$PATH && $1"
+}
+
+# ── Commands ──────────────────────────────────────────
+
+cmd_build() {
+  local pkg="$1" cmd="${2:-brazil-build}"
+  echo "=== Remote Build: ${pkg} (${WS_NAME}) ==="
+  do_sync push "src/${pkg}"
+  sync_ws_config
+  echo ">>> Building on remote..."
+  set +e
+  remote_exec "cd ${REMOTE_WS}/src/${pkg} && ${cmd}" 2>&1
+  local ec=$?
+  set -e
+  echo "---"
+  [ $ec -eq 0 ] && echo ">>> BUILD SUCCEEDED" || echo ">>> BUILD FAILED (exit ${ec})"
+  return $ec
+}
+
+cmd_cp() {
+  [ $# -ne 2 ] && echo "Usage: remote cp <src> <dst>  (prefix remote paths with :)" >&2 && exit 1
+  local src="$1" dst="$2"
+  if [[ "$src" == :* ]]; then
+    echo ">>> cp: remote -> local"
+    rsync -azv --progress "${REMOTE}:${src#:}" "$dst"
+  elif [[ "$dst" == :* ]]; then
+    echo ">>> cp: local -> remote"
+    rsync -azv --progress "$src" "${REMOTE}:${dst#:}"
+  else
+    echo "ERROR: prefix one path with ':' for remote" >&2; return 1
+  fi
+}
+
+cmd_ssh() {
+  local dir="${1:-}"
+  [ -n "$dir" ] && dir="${dir/#$HOME//home/${REMOTE_USER}}"
+  local rcmd="${dir:+cd ${dir} && }exec \$SHELL -l"
+  ssh -t "$REMOTE" "$rcmd"
+}
+
+# ── Option parsing ────────────────────────────────────
+
+# Handle --help before getopts (which only supports short options)
+for arg in "$@"; do
+  case "$arg" in --help) usage; exit 0 ;; esac
+done
+
+EXPLICIT_WS=""
+while getopts "w:h" opt; do
+  case $opt in
+    w) EXPLICIT_WS="$OPTARG" ;;
+    h) usage; exit 0 ;;
+    *) exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# Commands that don't need a workspace
+case "${1:-}" in
+  ssh)  shift; cmd_ssh "$@"; exit 0 ;;
+  cp)   shift; cmd_cp "$@"; exit 0 ;;
+  help|"") usage; exit 0 ;;
+esac
+
+# ── Resolve workspace ─────────────────────────────────
+
+if [ -n "$EXPLICIT_WS" ]; then
+  LOCAL_WS="${LOCAL_WS_ROOT}/${EXPLICIT_WS}"
+  mkdir -p "$LOCAL_WS"
+  WS_NAME="$EXPLICIT_WS"
+elif LOCAL_WS=$(find_ws); then
+  WS_NAME=$(basename "$LOCAL_WS")
+else
+  echo "ERROR: Not in a workspace. Use -w <name>." >&2; exit 1
+fi
+REMOTE_WS="${REMOTE_WS_ROOT}/${WS_NAME}"
+
+# ── Dispatch (workspace-dependent commands) ───────────
+
+CMD="$1"; shift
+
+case "$CMD" in
+  push)  do_sync push "${1:-}" ;;
+  pull)  do_sync pull "${1:-}" ;;
+  build) pkg="${1:-$(detect_pkg || true)}"
+         [ -z "$pkg" ] && echo "ERROR: not in a package dir and no pkg specified" >&2 && exit 1
+         shift || true
+         cmd_build "$pkg" "${1:-brazil-build}" ;;
+  *)     echo "ERROR: Unknown '$CMD'" >&2; usage; exit 1 ;;
+esac

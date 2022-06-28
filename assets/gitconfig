@@ -1,0 +1,16 @@
+[core]
+	editor = vim
+	excludesfile = ~/.gitignore
+
+[diff]
+	tool = vimdiff
+
+[pull]
+	ff = only
+
+[rerere]
+	enabled = true
+
+[user]
+	name = ljhuang
+	email = ljhuang@amazon.com

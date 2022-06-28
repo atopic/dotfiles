@@ -1,0 +1,169 @@
+
+# Kiro CLI pre block. Keep at the top of this file.
+[[ -f "${HOME}/.local/share/kiro-cli/shell/zshrc.pre.zsh" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/zshrc.pre.zsh"
+
+# Locale
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# PATH {
+if [ "$(uname)" = "Darwin" ]; then
+    export JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-17.jdk/Contents/Home
+    export HOMEBREW_NO_AUTO_UPDATE=1
+    PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+    PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+    PATH="$HOME/dotfiles/bin:$PATH"
+    export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}"
+    export INFOPATH="/opt/homebrew/share/info${INFOPATH+:$INFOPATH}"
+fi
+
+PATH="$HOME/.toolbox/bin:$PATH"
+PATH="$HOME/.aim/mcp-servers:$PATH"
+export PATH
+# }
+
+# Editor {
+export EDITOR=vim
+export VISUAL=vim
+# }
+
+# Aliases {
+alias c='clear'
+alias k='kiro-cli chat'
+alias ...='cd ../..'
+alias gco='git checkout'
+alias gd='git diff'
+alias gds='git diff --staged'
+alias glog='git log --pretty=oneline --graph --decorate --abbrev-commit'
+alias gpr='git pull --rebase'
+alias gs='git status'
+alias gtr='cd `git rev-parse --show-toplevel`'
+if [ "$(uname)" = "Darwin" ]; then
+    alias ls='ls -G'
+else
+    alias ls='ls --color=auto'
+fi
+alias la='ls -lah'
+
+alias bb='brazil-build'
+alias bre='brazil-runtime-exec'
+alias bws='brazil ws'
+alias crd='cr --description ~/.crdescription '
+
+alias ev='vim $HOME/.vimrc'
+alias ez='vim $HOME/.zshrc'
+alias v=vim
+alias vil='vim -u NONE -c "set nu|set cursorline|set nowrap"'
+# }
+
+# Completions {
+autoload -Uz compinit
+ZSH_COMPDUMP="${ZDOTDIR:-$HOME}/.zcompdump-${ZSH_VERSION}"
+if [[ -n "$ZSH_COMPDUMP"(#qN.mh+24) ]]; then
+    compinit -d "$ZSH_COMPDUMP"
+else
+    compinit -C -d "$ZSH_COMPDUMP"
+fi
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z-_}={A-Za-z_-}' 'r:|=*' 'l:|=* r:|=*'
+# }
+
+# Keybindings {
+bindkey -e  # emacs keybindings (Ctrl+A/Ctrl+E) despite EDITOR=vim
+# }
+
+# History completions {
+bindkey '^[[A' history-search-backward
+bindkey '^[[B' history-search-forward
+# }
+
+# Pager {
+export LESS_TERMCAP_so=$'\E[30;43m'  # standout mode on: black text, yellow bg (search highlights in less/man)
+export LESS_TERMCAP_se=$'\E[0m'    # standout mode off: reset formatting
+# }
+
+setopt NO_BEEP             # disable terminal beep on errors
+setopt AUTO_CD              # type a directory name to cd into it
+setopt AUTO_PUSHD           # cd pushes to stack, use "cd -" to go back
+
+# Prompt {
+setopt PROMPT_SUBST
+precmd() {
+    # Read branch from .git/HEAD directly — avoids forking git
+    local head gitdir d dirty
+    _git_prompt=""
+    d=$PWD
+    while [[ $d != / ]]; do
+        if [[ -r $d/.git/HEAD ]]; then
+            gitdir=$d/.git
+            break
+        fi
+        d=${d:h}
+    done
+    if [[ -n $gitdir ]]; then
+        read -r head < "$gitdir/HEAD"
+        if [[ $head == ref:\ refs/heads/* ]]; then
+            head=${head#ref: refs/heads/}
+        else
+            head=${head:0:8}
+        fi
+        # Check for any changes (staged, unstaged, or untracked)
+        dirty=""
+        [[ -n $(git -C "${gitdir:h}" status --porcelain 2>/dev/null) ]] && dirty="%F{red}*"
+        _git_prompt="(%F{green}${head}${dirty}%f)"
+    fi
+}
+PROMPT='%F{magenta}%m:%F{cyan}%3~%f${_git_prompt} %# '
+# }
+
+# Tools {
+eval "$(mise activate zsh --shims)"
+eval "$(zoxide init zsh)"
+# }
+
+# Remote dev-desktop {
+# Load REMOTE hostname from ~/.remote (gitignored) — update that file when rotating desktops
+[[ -f "$HOME/.remote" ]] && source "$HOME/.remote"
+alias ma="mosh $REMOTE_ARM"
+alias mat="mosh $REMOTE_ARM -- tmux new -As 0"
+alias sa="ssh $REMOTE_ARM"
+alias sat="ssh $REMOTE_ARM -t tmux new -As 0"
+alias rssh="remote ssh"
+# }
+
+# Lazy-load nvm
+export NVM_DIR="$HOME/.nvm"
+nvm() {
+    unset -f nvm node npm npx
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+    nvm "$@"
+}
+node() { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; node "$@"; }
+npm() { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; npm "$@"; }
+npx() { unset -f nvm node npm npx; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; npx "$@"; }
+
+# History
+HISTFILE=~/.zsh_history
+HISTSIZE=100000                # commands loaded into memory (for search/autosuggestions)
+SAVEHIST=100000                # commands saved to file
+setopt SHARE_HISTORY           # sync history across all open shells in real time
+setopt HIST_IGNORE_ALL_DUPS    # remove older duplicate when new one is added
+setopt HIST_REDUCE_BLANKS      # trim extra whitespace before saving
+setopt HIST_IGNORE_SPACE    # prefix with space to exclude from history
+
+
+# fzf — fuzzy search history with Ctrl+R
+# git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+export QUIP_EMAIL=ljhuang@amazon.com
+
+# Kiro CLI post block. Keep at the bottom of this file.
+[[ -f "${HOME}/.local/share/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/zshrc.post.zsh"
+
+# vim: fdm=marker fmr={,}
+
+# if you wish to use IMDS set AWS_EC2_METADATA_DISABLED=false
+
+export AWS_EC2_METADATA_DISABLED=true
+

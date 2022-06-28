@@ -1,0 +1,113 @@
+" vim-plug {
+call plug#begin('~/.vim/plugged')
+Plug 'easymotion/vim-easymotion'
+Plug 'kaicataldo/material.vim'
+Plug 'ntpeters/vim-better-whitespace'
+Plug 'preservim/nerdtree', { 'on': 'NERDTreeToggle' }
+Plug 'tpope/vim-commentary'
+Plug 'rust-lang/rust.vim'
+call plug#end()
+" }
+
+" Basic settings {
+filetype plugin indent on
+set autochdir
+set autoread
+set autowrite
+set belloff=all
+set clipboard=unnamed
+set expandtab
+set fileencodings=utf-8,gbk,big5,gb18030,latin1
+set laststatus=2
+set linebreak
+set modelines=1
+set mouse=a
+set nobackup
+set noswapfile
+set path+=**
+set ruler
+set shiftwidth=0
+set showcmd
+set tabstop=4
+set wildmenu
+" }
+
+" Autocmds {
+augroup configgroup
+    autocmd!
+    autocmd BufRead *.h set filetype=cpp syntax=cpp
+    autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$")
+                \ | exe "normal! g`\"" | endif
+    autocmd BufWritePost ~/.vimrc source ~/.vimrc
+    autocmd FileType cpp setlocal tabstop=2
+    autocmd InsertEnter * set nocursorline
+    autocmd InsertLeave * set cursorline
+augroup END
+" }
+
+" Search {
+nnoremap <CR> :nohlsearch<CR><CR>
+set hlsearch
+set ignorecase smartcase
+set incsearch
+" }
+
+" Folding {
+nnoremap <space> za
+set fillchars=fold:\ ,
+set foldlevelstart=20
+set foldmethod=indent
+" }
+
+" Coloring {
+syntax enable
+let g:material_theme_style = 'default'
+silent! colorscheme material
+highlight Comment cterm=italic
+" }
+
+" Navigation {
+noremap bd :bd<CR>
+noremap bn :bn<CR>
+noremap bp :bp<CR>
+nnoremap nw <C-W><C-W>
+nnoremap j gj
+nnoremap k gk
+vnoremap < <gv
+vnoremap > >gv
+" }
+
+" Disable q {
+map q: :q
+nnoremap q <nop>
+vnoremap q <nop>
+nnoremap Q <nop>
+" }
+
+" EasyMotion {
+imap gb <ESC><Plug>(easymotion-b)
+nmap gb <Plug>(easymotion-b)
+imap gf <ESC><Plug>(easymotion-f)
+nmap gf <Plug>(easymotion-f)
+imap gF <ESC><Plug>(easymotion-F)
+nmap gF <Plug>(easymotion-F)
+imap gw <ESC><Plug>(easymotion-w)
+nmap gw <Plug>(easymotion-w)
+" }
+
+" NERDTree {
+let NERDTreeWinPos="left"
+let NERDTreeShowHidden=1
+let NERDTreeMinimalUI=1
+let NERDTreeAutoDeleteBuffer=1
+let NERDTreeIgnore = ['._Icon', '.dropbox', '.DS_Store', '.git',
+                    \ '.localized', '*.o', '*.out', 'Icon']
+nnoremap <Leader>n :NERDTreeToggle<CR>
+augroup NERDTree
+    autocmd!
+    autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
+        \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
+augroup END
+" }
+
+" vim: fdm=marker fmr={,}
