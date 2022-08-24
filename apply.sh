@@ -133,18 +133,11 @@ fi # "$(uname)" = "Darwin"
 
 if test "$(uname)" = "Linux"; then # ubuntu
     info "Installing dependencies..."
-    sudo apt update &>/dev/null
-    sudo apt-get upgrade -y &>/dev/null
-    sudo apt install autojump build-essential cloc cmake cscope ctags curl \
+    sudo yum update
+    sudo yum install autojump build-essential cloc cmake cscope ctags curl \
         mosh python3-pip silversearcher-ag tldr tmux tree vim \
-        zsh -y &> /dev/null
+        zsh -y
     info "Installing dependencies... done"
-fi
-
-if test ! "$SHELL" = $(which zsh); then
-    info "Using shell zsh..."
-    sudo chsh -s $(which zsh) ${USER}
-    info "Using shell zsh... done"
 fi
 
 omz_dir=$HOME/.oh-my-zsh

@@ -7,6 +7,7 @@ Plug 'ntpeters/vim-better-whitespace'
 Plug 'preservim/nerdtree', { 'on': 'NERDTreeToggle' }
 Plug 'preservim/tagbar'
 Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-fugitive'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 
@@ -36,13 +37,13 @@ set laststatus=2
 " Soft word wrap
 set linebreak
 set modelines=1
-set mouse=a
+set mouse=ni
 set nospell
 set pastetoggle=<leader>p
 set path+=**
 " line, column and % at the right bottom
 set ruler
-set scrolloff=2
+set scrolloff=0
 set shiftwidth=0
 " Show last command in the status line
 set showcmd
@@ -63,6 +64,7 @@ endif
 augroup configgroup
     autocmd!
     autocmd BufRead *.h set filetype=cpp syntax=cpp
+    autocmd BufRead *.ts setlocal tabstop=2
     " place cursor at the previous position
     autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$")
                 \ | exe "normal! g`\"" | endif
@@ -171,10 +173,11 @@ nmap gw <Plug>(easymotion-w)
 " }
 
 " NERDTree {
-let NERDTreeWinPos="left"
-let NERDTreeShowHidden=1
-let NERDTreeMinimalUI=1
 let NERDTreeAutoDeleteBuffer=1
+let NERDTreeMinimalUI=1
+let NERDTreeShowHidden=1
+let NERDTreeWinPos="left"
+let NERDTreeWinSize=50
 let NERDTreeIgnore = ['._Icon', '.dropbox', '.DS_Store', '.git',
                     \ '.localized', '*.o', '*.out', 'Icon']
 nnoremap <Leader>n :NERDTreeToggle<CR>

@@ -43,6 +43,8 @@ if [ "$(uname)" = "Darwin" ]; then
 
 fi
 
+PATH="$HOME/.local/bin:$PATH"
+
 # Amazon toolbox
 PATH="$HOME/.toolbox/bin:$PATH"
 
@@ -69,6 +71,10 @@ alias kcgp='kubectl get pod'
 alias kcgs='kubectl get svc'
 alias kclf='kubectl logs -f'
 alias py='python3'
+
+alias bb='brazil-build'
+alias bws='brazil ws'
+alias crd='cr --description ~/.crdescription '
 # }
 
 # Autojump {
@@ -79,6 +85,9 @@ else
 fi
 [ -f ${aj_sh} ] && . ${aj_sh}
 # }
+
+[[ -s /home/ljhuang/.autojump/etc/profile.d/autojump.sh ]] && source /home/ljhuang/.autojump/etc/profile.d/autojump.sh
+autoload -U compinit && compinit -u
 
 # Editor {
 EDITOR=vim
@@ -113,5 +122,14 @@ else
     PROMPT='%{$fg[magenta]%}%m:%{$fg[cyan]%}%3~%{$reset_color%}$(git_prompt_info) %# '
 fi
 # }
+
+export KRB5CCNAME=FILE:/tmp/krb5cc_`id -ru`
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+source /home/ljhuang/.brazil_completion/zsh_completion
+
+fpath=(~/.zsh/completion $fpath)
+autoload -Uz compinit && compinit -i
 
 # vim: fdm=marker fmr={,}
